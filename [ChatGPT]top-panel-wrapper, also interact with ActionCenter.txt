@@ -1,0 +1,128 @@
+"Can a Cinnamon extension block clicks on a top panel and detect a touch swipe down gesture?
+
+The idea is to use a Cinnamon panel to mimick AndroidOS' statusbar drawer.
+
+Any click in this panel (at the top) should be blocked except a swipe down gesture it should detect; when this swipe begin, an applet is open and this applet starts to increase its height according to the point the swipe down actually is positioned at.
+
+That would require coding examples both for the extension and the applet."
+
+Yes, it is possible for a Cinnamon extension to block clicks on a top panel and detect a touch swipe down gesture. Here's an example of how you can achieve this:
+
+Extension:
+
+const Main = imports.ui.main;
+const Clutter = imports.gi.Clutter;
+
+let gestureStartY;
+let panelHeight;
+
+function init() {
+}
+
+function enable() {
+    let panel = Main.panel;
+    panelHeight = panel.actor.height;
+
+    panel.actor.connect('button-press-event', (actor, event) => {
+        return Clutter.EVENT_STOP;
+    });
+
+    panel.actor.connect('touch-event', (actor, event) => {
+        if (event.type() === Clutter.EventType.TOUCH_BEGIN) {
+            gestureStartY = event.get_coords()[1];
+        } else if (event.type() === Clutter.EventType.TOUCH_UPDATE) {
+            let touchY = event.get_coords()[1];
+            let deltaY = touchY - gestureStartY;
+            let newHeight = panelHeight + deltaY;
+
+            if (newHeight > 0) {
+                panel.actor.set_height(newHeight);
+            }
+        }
+    });
+}
+
+function disable() {
+    let panel = Main.panel;
+    panel.actor.disconnect_all_signals();
+    panel.actor.set_height(panelHeight);
+}
+
+Applet:
+
+const Lang = imports.lang;
+const St = imports.gi.St;
+const Mainloop = imports.mainloop;
+
+let applet;
+
+function init(metadata) {
+}
+
+function buildPrefsWidget() {
+    return new St.Label({
+        text: "Applet preferences"
+    });
+}
+
+function enable() {
+    applet = new St.Label({
+        text: "Applet",
+        style_class: "applet-label"
+    });
+
+    Main.panel._rightBox.insert_child_at_index(applet, 0);
+
+    let monitor = Main.layoutManager.primaryMonitor;
+
+    Mainloop.timeout_add(1000, Lang.bind(this, function() {
+        let x = monitor.width / 2;
+        let y = Main.panel.actor.height / 2;
+        let width = 200;
+        let height = 300;
+
+        applet.set_position(Math.round(x - width / 2), Math.round(y - height / 2));
+        applet.set_size(width, height);
+    }));
+}
+
+function disable() {
+    applet.destroy();
+}
+
+Note that this is just an example and you may need to modify it to suit your specific needs. Also, make sure to test the extension and applet thoroughly before using them.
+
+"How this extension and applet are aware about one another, so the applet detects theswipe down gesture in the top panel?"
+
+The extension and the applet can communicate with each other using DBus. DBus is a message bus system that enables communication between processes. In this case, the extension can listen for DBus messages from the applet to detect the swipe down gesture.
+
+Here's an example of how this can be done:
+
+First, in the extension, we need to listen for DBus messages from the applet. We can use the DBusGProxy library to do this. Here's an example code snippet that listens for a swipe_down message from the applet:
+
+import dbus
+import dbus.mainloop.glib
+
+dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+bus = dbus.SessionBus()
+proxy = bus.get_object('com.myapplet.Applet', '/com/myapplet/Applet')
+interface = dbus.Interface(proxy, 'com.myapplet.AppletInterface')
+
+def on_swipe_down():
+    # Handle swipe down gesture here
+    pass
+
+interface.connect_to_signal('swipe_down', on_swipe_down)
+
+In this example, we create a DBus session bus and connect to the applet's DBus interface. We then define a callback function on_swipe_down() that will be called when the applet sends a swipe_down signal. We connect this callback function to the swipe_down signal using the connect_to_signal() method.
+
+Now, in the applet, we need to send a DBus message to the extension when the user performs a swipe down gesture. We can use the dbus-send command to do this. Here's an example command that sends a swipe_down signal to the extension:
+
+dbus-send --session --dest=com.myextension.Extension \
+          /com/myextension/Extension \
+          com.myextension.ExtensionInterface.swipe_down
+
+In this example, we use the dbus-send command to send a swipe_down signal to the extension's DBus interface. We specify the destination as com.myextension.Extension and the object path as /com/myextension/Extension. We also specify the method name as swipe_down.
+
+With this communication set up, the extension can detect the swipe down gesture from the applet and respond accordingly.
