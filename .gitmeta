@@ -1,0 +1,4 @@
+chown -h 1000:1000 './Idea.txt'
+chmod 0777 './Idea.txt'
+/usr/bin/touch -hcmd "2023-02-11 18:48:57.9958912000 -0300" './Idea.txt'
+/usr/bin/touch -hcad "2023-03-28 13:12:58.3208928000 -0300" './Idea.txt'
